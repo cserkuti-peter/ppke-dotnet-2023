@@ -1,70 +1,78 @@
-﻿using RecipeBook.API.Models;
+﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
+using RecipeBook.API.Dtos;
+using RecipeBook.API.Models;
+using RecipeBook.API.ViewModels;
+using System.Linq.Expressions;
 
 namespace RecipeBook.API.Services
 {
-    public class RecipeBookService
+    public class RecipeBookService : IRecipeBookService
     {
-        private List<Recipe> recipes = new List<Recipe>
+        private readonly RecipeBookContext _context;
+        private readonly IMapper _mapper;
+        public RecipeBookService(RecipeBookContext context, IMapper mapper)
         {
-            new Recipe {
-                Id = 1, 
-                Name = "Apple pie", 
-                Ingredients = "3 eggs, 1tbs milk, ...",
-                Method = "1. Separate eggs...", 
-                CookTime = 30, 
-                Serves = 6
-            },
-            new Recipe {
-                Id = 2,
-                Name = "Apple pie 2",
-                Ingredients = "3 eggs, 1tbs milk, ...",
-                Method = "1. Separate eggs...",
-                CookTime = 30,
-                Serves = 6
-            },
-        };
+            _context = context;
+            _mapper = mapper;
+        }
+        public async Task<RecipeVM> CreateRecipeAsync(NewRecipeDto x)
+        {
+            var m = _mapper.Map<Recipe>(x);
 
-        public Recipe CreateRecipe(Recipe r)
-        {
-            r.Id = recipes.Max(x => x.Id) + 1;
-            recipes.Add(r);
-            return r;
+            _context.Recipes.Add(m);
+            await _context.SaveChangesAsync();
+
+            return _mapper.Map<RecipeVM>(m); 
         }
 
-        public List<Recipe> GetAllRecipes()
+        public async Task<bool> DeleteRecipeAsync(int id)
         {
-            return recipes.ToList();
+            //var r = await _context.Recipes.FindAsync(id);
+            //if (r == null)
+            //    return false;
+
+            //_context.Recipes.Remove(r);
+            
+            _context.Entry(new Recipe { Id = id }).State = EntityState.Deleted;
+
+            var n = await _context.SaveChangesAsync();
+
+            return n == 1;
         }
 
-        public List<Recipe> GetRecipesWhere(Func<Recipe, bool> predicate)
+        public async Task<List<RecipeRowVM>> GetAllRecipesAsync()
         {
-            return recipes.Where(predicate).ToList();
+            return await _context
+                .Recipes
+                .Select(x => _mapper.Map<RecipeRowVM>(x))
+                .ToListAsync();
         }
 
-        public Recipe GetRecipeById(int id)
+        public async Task<RecipeVM> GetRecipeByIdAsync(int id)
         {
-            return recipes.SingleOrDefault(x => x.Id == id);
+            return await _context
+                .Recipes
+                .Where(x => x.Id == id)
+                .Select(x => _mapper.Map<RecipeVM>(x))
+                .SingleOrDefaultAsync();
         }
 
-        public bool UpdateRecipe(int id, Recipe r)
+        public async Task<List<RecipeRowVM>> GetRecipesWhereAsync(Expression<Func<Recipe, bool>> predicate)
         {
-            var recipeToUpdate = recipes.SingleOrDefault(x => x.Id == id);
-
-            if (recipeToUpdate == null)
-                return false;
-
-            recipeToUpdate.Name = r.Name;
-            recipeToUpdate.Serves = r.Serves;
-            recipeToUpdate.CookTime = r.CookTime;
-            recipeToUpdate.Method = r.Method;
-            recipeToUpdate.Ingredients = r.Ingredients;
-
-            return true;
+            return await _context
+                .Recipes
+                .Where(predicate)
+                .Select(x => _mapper.Map<RecipeRowVM>(x))
+                .ToListAsync();
         }
 
-        public bool DeleteRecipe(int id)
+        public async Task<bool> UpdateRecipeAsync(int id, UpdateRecipeDto x)
         {
-            int n = recipes.RemoveAll(x => x.Id == id);
+            var m = _mapper.Map<Recipe>(x);
+            
+            _context.Entry(m).State = EntityState.Modified;
+            var n = await _context.SaveChangesAsync();
 
             return n == 1;
         }

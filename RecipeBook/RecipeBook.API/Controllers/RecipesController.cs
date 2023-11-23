@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using RecipeBook.API.Dtos;
 using RecipeBook.API.Models;
 using RecipeBook.API.Services;
+using RecipeBook.API.ViewModels;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -10,24 +12,33 @@ namespace RecipeBook.API.Controllers
     [ApiController]
     public class RecipesController : ControllerBase
     {
-        private readonly RecipeBookService _recipeBookService;
-        public RecipesController(RecipeBookService service)
+        private readonly IRecipeBookService _recipeBookService;
+        private readonly ILogger<RecipesController> _logger;
+
+        public RecipesController(IRecipeBookService service, ILogger<RecipesController> logger)
         {
             _recipeBookService = service;
+            _logger = logger;
         }
 
         // GET: api/<RecipesController>
         [HttpGet]
-        public IEnumerable<Recipe> GetAll()
+        public async Task<IEnumerable<RecipeRowVM>> GetAll(string? term = null)
         {
-            return _recipeBookService.GetAllRecipes();
+            //throw new Exception("Test exception");
+
+            _logger.LogInformation("GetAll called.");
+
+            return term == null
+                ? await _recipeBookService.GetAllRecipesAsync()
+                : await _recipeBookService.GetRecipesWhereAsync(x => x.Name.Contains(term));
         }
 
         // GET api/<RecipesController>/5
         [HttpGet("{id}")]
-        public IActionResult GetById(int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            var r = _recipeBookService.GetRecipeById(id);
+            var r = await _recipeBookService.GetRecipeByIdAsync(id);
 
             if (r == null)
             {
@@ -39,27 +50,30 @@ namespace RecipeBook.API.Controllers
 
         // POST api/<RecipesController>
         [HttpPost]
-        public IActionResult Post([FromBody] Recipe recipe)
+        public async Task<IActionResult> Post([FromBody] NewRecipeDto recipe)
         {
-            var createdRecipe = _recipeBookService.CreateRecipe(recipe);
+            //if (!ModelState.IsValid)
+            //    return BadRequest(ModelState);
+
+            var createdRecipe = await _recipeBookService.CreateRecipeAsync(recipe);
 
             return CreatedAtAction(nameof(GetById), new { Id = createdRecipe.Id }, createdRecipe);
         }
 
         // PUT api/<RecipesController>/5
         [HttpPut("{id}")]
-        public IActionResult Put(int id, [FromBody] Recipe recipe)
+        public async Task<IActionResult> Put(int id, [FromBody] UpdateRecipeDto recipe)
         {
-            return _recipeBookService.UpdateRecipe(id, recipe)
+            return await _recipeBookService.UpdateRecipeAsync(id, recipe)
                 ? NoContent()
                 : NotFound();
         }
 
         // DELETE api/<RecipesController>/5
         [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            return _recipeBookService.DeleteRecipe(id)
+            return await _recipeBookService.DeleteRecipeAsync(id)
                 ? NoContent()
                 : NotFound();
         }
